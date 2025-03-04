@@ -9,7 +9,14 @@ from dotenv import load_dotenv
 from Events.events_manager import new_event, handle_year, handle_month, handle_day  # type:ignore
 from Events.event import load_events
 from Tasks.tasks_manager import new_task, handle_task_date
-from Reminder.reminder import items_reminder, setup_default_reminders, change_item_reminder, save_new_hour, set_new_time, list_tasks  # type: ignore
+from Reminder.reminder import (
+    items_reminder,
+    setup_default_reminders,
+    change_item_reminder,
+    save_new_hour,
+    set_new_time,
+    list_tasks,
+)  # type: ignore
 
 
 load_dotenv()
@@ -29,10 +36,13 @@ def configure_settings(message):
     configure_markup.add(
         InlineKeyboardButton("Horario de avisos", callback_data="item_remind_time")
     )
-    configure_markup.add(InlineKeyboardButton("Otro (en developing)", callback_data="No"))
+    configure_markup.add(
+        InlineKeyboardButton("Otro (en developing)", callback_data="No")
+    )
     bot.send_message(
         message.chat.id, "¿Qué quieres configurar?", reply_markup=configure_markup
     )
+
 
 @bot.message_handler(commands=["new"])
 def new_item(message):
@@ -55,28 +65,34 @@ def list_items(message):
 def handle_event(call):
     if call.data == "event":
         new_event(bot, call)
+        bot.answer_callback_query(call.id)
     elif call.data == "task":
         new_task(bot, call)
+        bot.answer_callback_query(call.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("year_"))
 def callback_year(call):
     handle_year(bot, call)
+    bot.answer_callback_query(call.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("month_"))
 def callback_month(call):
     handle_month(bot, call)
+    bot.answer_callback_query(call.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("day_"))
 def callback_day(call):
     handle_day(bot, call)
+    bot.answer_callback_query(call.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("date_"))
 def callback_task_day(call):
     handle_task_date(bot, call)
+    bot.answer_callback_query(call.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "events")
@@ -96,41 +112,59 @@ def list_events(call):
     )
     bot.answer_callback_query(call.id)
 
-@bot.callback_query_handler(func = lambda call: call.data == "tasks")
+
+@bot.callback_query_handler(func=lambda call: call.data == "tasks")
 def handle_list_tasks(call):
     list_tasks(bot)
+    bot.answer_callback_query(call.id)
 
-@bot.callback_query_handler(func = lambda call: call.data == "item_remind_time")
+
+@bot.callback_query_handler(func=lambda call: call.data == "item_remind_time")
 def handle_remind_time(call):
     change_item_reminder(bot, call)
+    bot.answer_callback_query(call.id)
 
-@bot.callback_query_handler(func = lambda call: call.data.startswith("hour_"))
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("hour_"))
 def handle_new_hour(call):
     save_new_hour(bot, call)
-    
-@bot.callback_query_handler(func = lambda call: call.data.startswith("minute_"))
+    bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("minute_"))
 def handle_new_time(call):
     set_new_time(bot, call)
- 
-@bot.callback_query_handler(func = lambda call: call.data.startswith("pospone_"))
+    bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("pospone_"))
 def handle_pospone_task(call):
     new_task(bot, call, pospone=True)
+    bot.answer_callback_query(call.id)
+
 
 def run_bot() -> None:
     try:
-        items_reminder.start()
-        print(items_reminder.get_jobs())
         bot.polling(none_stop=True, timeout=60, long_polling_timeout=60)
     except KeyboardInterrupt:
-        items_reminder.shutdown()
-        bot.stop_polling()
+        print("Interrupción detectada. Apagando bot y scheduler...")
     except Exception as e:
         print(f"Error en polling: {e}")
         time.sleep(5)
         run_bot()
-
+    finally:
+        items_reminder.shutdown()
+        bot.stop_polling()
 
 if __name__ == "__main__":
-    scheduler_thread = threading.Thread(target=items_reminder.start)
+    scheduler_thread = threading.Thread(target=items_reminder.start, daemon=True)  
     scheduler_thread.start()
-    run_bot()
+    print(items_reminder.get_jobs())
+
+    try:
+        run_bot()
+    except KeyboardInterrupt:
+        print("Apagando el bot y esperando al scheduler...")
+    finally:
+        scheduler_thread.join()
+        print("Bot y scheduler apagados correctamente.")
