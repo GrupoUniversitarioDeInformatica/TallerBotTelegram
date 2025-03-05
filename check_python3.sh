@@ -21,6 +21,14 @@ else
     echo "Python 3 ya instalado."
 fi
 
+if [ ! -d ".venv" ]; then
+    echo "Creando entorno virtual"
+    python3 -m venv .venv
+    source ./.venv/bin/activate
+    pip install -r requierements.txt
+    echo "Entorno virtual creado y activado. Se puede desactivar en cualquier momento ejecutando 'deactivate'"
+fi
+
 mkdir -p src/json/ 
 echo "" > src/json/events.json
 echo "" > src/json/tasks.json
@@ -28,7 +36,8 @@ echo "TOKEN=" > .env
 
 echo "Directorios y archivos creados."
 
-URL="https://pytba.readthedocs.io/en/latest/quick_start.html"
-xdg-open $URL
+URL="https://pytba.readthedocs.io/en/latest/index.html"
+URL2="https://pytba.readthedocs.io/en/latest/quick_start.html"
+xdg-open $URL && xdg-open $URL2
 exit 0
 
